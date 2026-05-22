@@ -147,15 +147,16 @@ class App:
             try:
                 file_info = parse_filename(filepath)
                 metadata, data = parse_csv(filepath)
-                pwm_results = process_file(filepath, metadata, data,
-                                           sigma=sigma, min_samples=min_samples)
+                result = process_file(filepath, metadata, data,
+                                      sigma=sigma, min_samples=min_samples)
                 all_results.append({
                     "filename": filename,
                     "file_info": file_info,
                     "metadata": metadata,
-                    "pwm_results": pwm_results,
+                    "pwm_result": result,
                 })
-                self._log(f"[{i+1}/{len(self.csv_files)}] {filename} → {len(pwm_results)} 个台阶")
+                status = "OK" if result else "跳过（无有效稳态段）"
+                self._log(f"[{i+1}/{len(self.csv_files)}] {filename} → {status}")
             except Exception as e:
                 self._log(f"[{i+1}/{len(self.csv_files)}] {filename} → 出错: {e}")
 

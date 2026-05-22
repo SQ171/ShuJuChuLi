@@ -50,33 +50,36 @@ def export_to_excel(all_results: list, output_path: str):
         file_info = file_result["file_info"]
         metadata = file_result["metadata"]
         filename = file_result["filename"]
+        pwm_result = file_result.get("pwm_result")
 
-        for pwm_result in file_result["pwm_results"]:
-            values = [
-                filename,
-                file_info.get("日期"), file_info.get("桨叶转向"), file_info.get("电机型号"),
-                file_info.get("桨叶材质"), file_info.get("批次"), file_info.get("桨叶序号"),
-                file_info.get("运行序号"),
-                file_info.get("涵道型号"), file_info.get("涵道唇口半径"),
-                file_info.get("涵道延伸段长度"), file_info.get("涵道延伸段角度"),
-                file_info.get("涵道间隙"),
-                _to_float(metadata.get("环境温度")),
-                _to_float(metadata.get("环境湿度")),
-                _to_float(metadata.get("空气密度")),
-                pwm_result["PWM-μs"],
-                pwm_result["油门-%"],
-                pwm_result["拉力-g"],
-                pwm_result["扭矩-N·m"],
-                pwm_result["电功率-W"],
-                pwm_result["拉力力效-g/W"],
-                pwm_result["样本数"],
-                pwm_result["剔除数"],
-            ]
-            for col_idx, val in enumerate(values, 1):
-                cell = ws.cell(row=row_idx, column=col_idx, value=val)
-                cell.border = thin_border
-                cell.alignment = Alignment(horizontal="center")
-            row_idx += 1
+        if pwm_result is None:
+            continue
+
+        values = [
+            filename,
+            file_info.get("日期"), file_info.get("桨叶转向"), file_info.get("电机型号"),
+            file_info.get("桨叶材质"), file_info.get("批次"), file_info.get("桨叶序号"),
+            file_info.get("运行序号"),
+            file_info.get("涵道型号"), file_info.get("涵道唇口半径"),
+            file_info.get("涵道延伸段长度"), file_info.get("涵道延伸段角度"),
+            file_info.get("涵道间隙"),
+            _to_float(metadata.get("环境温度")),
+            _to_float(metadata.get("环境湿度")),
+            _to_float(metadata.get("空气密度")),
+            pwm_result["PWM-μs"],
+            pwm_result["油门-%"],
+            pwm_result["拉力-g"],
+            pwm_result["扭矩-N·m"],
+            pwm_result["电功率-W"],
+            pwm_result["拉力力效-g/W"],
+            pwm_result["样本数"],
+            pwm_result["剔除数"],
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+        row_idx += 1
 
     # 冻结首行
     ws.freeze_panes = "A2"

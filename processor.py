@@ -4,62 +4,73 @@ import numpy as np
 
 
 def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
-                 min_samples: int = 3):
-    """处理单个文件的数据
+                 min_samples: int = 10):
+    """处理单个文件的数据，返回最稳定油门段的汇总结果
+
+    从所有稳态段中选出样本数最多的段（排除怠速 PWM=1000），
+    对该段做 σ 剔除后求均值，作为该文件唯一输出。
 
     Args:
         filepath: CSV 文件路径
         metadata: parse_csv 返回的元数据
         data: parse_csv 返回的数据行列表
         sigma: 异常值剔除的 σ 系数
-        min_samples: 每组剔除后最少保留的数据量
+        min_samples: 稳定段最少保留的数据量
 
     Returns:
-        list[dict]: 每个有效 PWM 台阶的汇总结果
+        dict or None: 最佳油门段的汇总结果
     """
-    # 按 PWM 稳态段分组
     segments = _group_by_stable_segments(data)
 
-    results = []
+    # 选出非怠速段中样本数最多的
+    best_segment = None
+    best_count = 0
     for segment_rows in segments:
-        # 提取关键指标数组
-        thrusts = np.array([r["拉力-g"] for r in segment_rows if r.get("拉力-g") is not None])
-        torques = np.array([r["扭矩-N•m"] for r in segment_rows if r.get("扭矩-N•m") is not None])
-        powers = np.array([r["电功率-W"] for r in segment_rows if r.get("电功率-W") is not None])
-        throttles = np.array([r["油门-%"] for r in segment_rows if r.get("油门-%") is not None])
-
-        if len(thrusts) < min_samples:
+        pwms = [r.get("PWM-μs") for r in segment_rows if r.get("PWM-μs") is not None]
+        if not pwms:
             continue
-
-        # 统计剔除异常值
-        mask = _outlier_mask_multi([thrusts, torques, powers], sigma=sigma)
-        mask &= (powers > 0)  # 排除零功率点
-
-        valid_thrusts = thrusts[mask]
-        valid_torques = torques[mask]
-        valid_powers = powers[mask]
-        valid_throttles = throttles[mask]
-
-        if len(valid_thrusts) < min_samples:
+        mean_pwm = np.mean(pwms)
+        if mean_pwm <= 1010:  # 排除怠速段
             continue
+        if len(segment_rows) > best_count:
+            best_count = len(segment_rows)
+            best_segment = segment_rows
 
-        # 计算力效 = 拉力 / 电功率
-        efficiencies = valid_thrusts / valid_powers
-        mean_pwm = int(round(np.mean([r["PWM-μs"] for r in segment_rows])))
+    if best_segment is None or len(best_segment) < min_samples:
+        return None
 
-        result = {
-            "PWM-μs": mean_pwm,
-            "油门-%": round(float(np.mean(valid_throttles)), 2),
-            "拉力-g": round(float(np.mean(valid_thrusts)), 1),
-            "扭矩-N·m": round(float(np.mean(valid_torques)), 4),
-            "电功率-W": round(float(np.mean(valid_powers)), 2),
-            "拉力力效-g/W": round(float(np.mean(efficiencies)), 2),
-            "样本数": len(valid_thrusts),
-            "剔除数": len(thrusts) - len(valid_thrusts),
-        }
-        results.append(result)
+    segment_rows = best_segment
 
-    return results
+    thrusts = np.array([r["拉力-g"] for r in segment_rows if r.get("拉力-g") is not None])
+    torques = np.array([r["扭矩-N•m"] for r in segment_rows if r.get("扭矩-N•m") is not None])
+    powers = np.array([r["电功率-W"] for r in segment_rows if r.get("电功率-W") is not None])
+    throttles = np.array([r["油门-%"] for r in segment_rows if r.get("油门-%") is not None])
+
+    # 统计剔除异常值
+    mask = _outlier_mask_multi([thrusts, torques, powers], sigma=sigma)
+    mask &= (powers > 0)
+
+    valid_thrusts = thrusts[mask]
+    valid_torques = torques[mask]
+    valid_powers = powers[mask]
+    valid_throttles = throttles[mask]
+
+    if len(valid_thrusts) < min_samples:
+        return None
+
+    efficiencies = valid_thrusts / valid_powers
+    mean_pwm = int(round(np.mean([r["PWM-μs"] for r in segment_rows])))
+
+    return {
+        "PWM-μs": mean_pwm,
+        "油门-%": round(float(np.mean(valid_throttles)), 2),
+        "拉力-g": round(float(np.mean(valid_thrusts)), 1),
+        "扭矩-N·m": round(float(np.mean(valid_torques)), 4),
+        "电功率-W": round(float(np.mean(valid_powers)), 2),
+        "拉力力效-g/W": round(float(np.mean(efficiencies)), 2),
+        "样本数": len(valid_thrusts),
+        "剔除数": len(thrusts) - len(valid_thrusts),
+    }
 
 
 def _group_by_stable_segments(data: list, pwm_tolerance: int = 2) -> list:
