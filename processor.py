@@ -1,6 +1,7 @@
 """数据处理模块：PWM分组、统计剔除异常值、汇总计算"""
 
 import numpy as np
+from collections import Counter
 
 
 def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
@@ -39,12 +40,21 @@ def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
     if best_segment is None or len(best_segment) < min_samples:
         return None
 
-    segment_rows = best_segment
+    # 在最佳段内找到保持时间最长的油门值（众数）
+    all_throttles = np.array([r["油门-%"] for r in best_segment if r.get("油门-%") is not None])
+    rounded = np.round(all_throttles, 1)
+    mode_throttle = Counter(rounded).most_common(1)[0][0]
 
-    thrusts = np.array([r["拉力-g"] for r in segment_rows if r.get("拉力-g") is not None])
-    torques = np.array([r["扭矩-N•m"] for r in segment_rows if r.get("扭矩-N•m") is not None])
-    powers = np.array([r["电功率-W"] for r in segment_rows if r.get("电功率-W") is not None])
-    throttles = np.array([r["油门-%"] for r in segment_rows if r.get("油门-%") is not None])
+    # 仅保留油门值等于众数的行（容差 ±0.05%）
+    stable_rows = [r for r in best_segment
+                   if r.get("油门-%") is not None and abs(r["油门-%"] - mode_throttle) <= 0.05]
+
+    if len(stable_rows) < min_samples:
+        return None
+
+    thrusts = np.array([r["拉力-g"] for r in stable_rows if r.get("拉力-g") is not None])
+    torques = np.array([r["扭矩-N•m"] for r in stable_rows if r.get("扭矩-N•m") is not None])
+    powers = np.array([r["电功率-W"] for r in stable_rows if r.get("电功率-W") is not None])
 
     # 统计剔除异常值
     mask = _outlier_mask_multi([thrusts, torques, powers], sigma=sigma)
@@ -53,17 +63,16 @@ def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
     valid_thrusts = thrusts[mask]
     valid_torques = torques[mask]
     valid_powers = powers[mask]
-    valid_throttles = throttles[mask]
 
     if len(valid_thrusts) < min_samples:
         return None
 
     efficiencies = valid_thrusts / valid_powers
-    mean_pwm = int(round(np.mean([r["PWM-μs"] for r in segment_rows])))
+    mean_pwm = int(round(np.mean([r["PWM-μs"] for r in stable_rows])))
 
     return {
         "PWM-μs": mean_pwm,
-        "油门-%": round(float(np.mean(valid_throttles)), 2),
+        "油门-%": mode_throttle,
         "拉力-g": round(float(np.mean(valid_thrusts)), 1),
         "扭矩-N·m": round(float(np.mean(valid_torques)), 4),
         "电功率-W": round(float(np.mean(valid_powers)), 2),
