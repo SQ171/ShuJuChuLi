@@ -21,7 +21,7 @@ class App:
         self.input_dir = tk.StringVar()
         self.output_file = tk.StringVar()
         self.sigma = tk.DoubleVar(value=2.5)
-        self.min_samples = tk.IntVar(value=3)
+        self.min_samples = tk.IntVar(value=10)
         self.csv_files = []
         self._build_ui()
 
@@ -147,7 +147,7 @@ class App:
             try:
                 file_info = parse_filename(filepath)
                 metadata, data = parse_csv(filepath)
-                result = process_file(filepath, metadata, data,
+                result = process_file(metadata, data,
                                       sigma=sigma, min_samples=min_samples)
                 all_results.append({
                     "filename": filename,

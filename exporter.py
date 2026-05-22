@@ -1,7 +1,5 @@
 """Excel 导出模块"""
 
-import os
-import time
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 

@@ -1,9 +1,7 @@
 """文件名解析 & CSV 解析模块"""
 
-import csv
 import os
 import re
-from io import StringIO
 
 # 文件名字段映射（按 - 分割后的位置）
 # 当前 7 字段 + 预留 5 个涵道字段，共 12 个
@@ -71,18 +69,19 @@ def _parse_metadata(raw: str) -> dict:
         "测试模式": r"测试模式:,*\s*([^,\n]*)",
     }
 
+    _unit_strip = {
+        "环境温度": "℃",
+        "环境湿度": "%RH",
+        "空气密度": "kg/m³",
+        "大气压": "kPa",
+    }
+
     for key, pattern in patterns.items():
         match = re.search(pattern, raw)
         if match:
             value = match.group(1).strip()
-            if key == "环境温度":
-                value = value.replace("℃", "").strip()
-            elif key == "环境湿度":
-                value = value.replace("%RH", "").strip()
-            elif key == "空气密度":
-                value = value.replace("kg/m³", "").strip()
-            elif key == "大气压":
-                value = value.replace("kPa", "").strip().rstrip()
+            if key in _unit_strip:
+                value = value.replace(_unit_strip[key], "").strip()
             metadata[key] = value
 
     return metadata

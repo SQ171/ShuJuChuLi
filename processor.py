@@ -4,7 +4,7 @@ import numpy as np
 from collections import Counter
 
 
-def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
+def process_file(metadata: dict, data: list, sigma: float = 2.5,
                  min_samples: int = 10):
     """处理单个文件的数据，返回最稳定油门段的汇总结果
 
@@ -12,7 +12,6 @@ def process_file(filepath: str, metadata: dict, data: list, sigma: float = 2.5,
     对该段做 σ 剔除后求均值，作为该文件唯一输出。
 
     Args:
-        filepath: CSV 文件路径
         metadata: parse_csv 返回的元数据
         data: parse_csv 返回的数据行列表
         sigma: 异常值剔除的 σ 系数
@@ -88,13 +87,10 @@ def _group_by_stable_segments(data: list, pwm_tolerance: int = 2) -> list:
     Returns:
         list[list]: 每个元素为一段稳态数据的行列表
     """
-    # 按帧号排序（保证时间顺序）
-    sorted_data = sorted(data, key=lambda r: r.get("帧数", 0))
-
     segments = []
     current_segment = []
 
-    for row in sorted_data:
+    for row in data:
         pwm = row.get("PWM-μs")
         if pwm is None:
             continue
