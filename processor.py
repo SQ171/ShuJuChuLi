@@ -72,10 +72,10 @@ def process_file(metadata: dict, data: list, sigma: float = 2.5,
     return {
         "PWM-μs": mean_pwm,
         "油门-%": mode_throttle,
-        "拉力-g": round(float(np.mean(valid_thrusts)), 1),
+        "拉力-g": round(float(abs(np.mean(valid_thrusts))), 1),
         "扭矩-N·m": round(float(np.mean(valid_torques)), 4),
         "电功率-W": round(float(np.mean(valid_powers)), 2),
-        "拉力力效-g/W": round(float(np.mean(efficiencies)), 2),
+        "拉力力效-g/W": round(float(abs(np.mean(efficiencies))), 2),
         "样本数": len(valid_thrusts),
         "剔除数": len(thrusts) - len(valid_thrusts),
     }
